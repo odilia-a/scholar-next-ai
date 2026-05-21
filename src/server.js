@@ -75,6 +75,12 @@ app.get("/", (req, res) => {
   });
 });
 
+//HEALTH CHECK (IMPORTANT)
+
+app.get("/healthz", (req, res) => {
+  res.status(200).send("OK");
+});
+
 // API ROUTES BASE
 
 // Auth routes
