@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const WebhookEvent = require("../models/WebhookEvent");
+const WebhookEvent = require("../models/webhookEvent");
 const upgradeSubscription = require("../utils/upgradeSubscription");
 
  //HELPERS (IDEMPOTENCY)
