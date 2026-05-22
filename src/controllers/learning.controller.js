@@ -1,6 +1,6 @@
 const LearningProfile =
   require(
-    "../models/LearningProfile"
+    "../models/learningProfile"
   );
 
 const {

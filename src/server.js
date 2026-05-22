@@ -145,9 +145,7 @@ const PORT = process.env.PORT || 5000;
 validateEnv();
 connectDB();
 
-app.listen(PORT, () => {
-  const logger = require("./utils/logger");
-
+app.listen(PORT, "0.0.0.0", () => {
 logger.info(
   `Scholar Next AI server running on port ${PORT}`
 );
