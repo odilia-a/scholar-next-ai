@@ -78,6 +78,7 @@ app.get("/", (req, res) => {
 //HEALTH CHECK (IMPORTANT)
 
 app.get("/healthz", (req, res) => {
+  console.log("HEALTH CHECK HIT");
   res.status(200).send("OK");
 });
 
