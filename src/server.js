@@ -109,6 +109,12 @@ app.use(
   )
 );
 
+// ADMIN ROUTES (Cost reporting, usage metrics)
+app.use(
+  "/api/v1/admin",
+  require("./routes/admin.routes")
+);
+
 // WEBHOOKS ROUTES
 app.use(
   "/api/v1/webhooks",
