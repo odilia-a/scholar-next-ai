@@ -1,5 +1,20 @@
 const CostTracker = require("../models/CostTracker");
 const User = require("../models/User");
+const nodemailer = require("nodemailer");
+
+// Configure transporter if SMTP env vars are present
+let transporter = null;
+if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 587,
+    secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+}
 
 const PROVIDER_COSTS = {
   gemini: { input: 0.000075, output: 0.0003 },
@@ -132,12 +147,34 @@ const checkAndAlertBudget = async (userId, dailyTracker, monthlyTracker) => {
  */
 const sendBudgetAlert = async (user, tracker, period) => {
   try {
-    // TODO: Integrate with email service (Sendgrid, Nodemailer, etc.)
-    console.log(`🚨 Budget EXCEEDED for ${user._id} - ${period} limit exceeded`);
-    console.log(`Total: $${tracker.totalCost.toFixed(2)} / Limit: $${tracker.budgetLimit.toFixed(2)}`);
+    const to = user?.email || process.env.TEST_ALERT_EMAIL;
+    const from = process.env.FROM_EMAIL || `no-reply@${process.env.EMAIL_DOMAIN || "localhost"}`;
 
-    // Log for audit trail
-    console.log(`Alert sent at: ${new Date().toISOString()}`);
+    const subject = `Budget Exceeded: ${period} spending for your account`;
+    const text = `Your ${period} API spending ($${tracker.totalCost.toFixed(2)}) has exceeded your budget limit ($${tracker.budgetLimit.toFixed(2)}).`;
+    const html = `<p>${text}</p><p>Time: ${new Date().toISOString()}</p>`;
+
+    if (!to) {
+      console.warn("No recipient found for budget alert");
+      return;
+    }
+
+    if (transporter) {
+      await transporter.sendMail({
+        from,
+        to,
+        subject,
+        text,
+        html,
+      });
+      console.log(`Budget alert email sent to ${to}`);
+    } else {
+      console.log(`🚨 Budget EXCEEDED for ${user._id} - ${period} limit exceeded (no SMTP configured)`);
+      console.log(text);
+    }
+
+    // Audit log
+    console.log(`Alert processed at: ${new Date().toISOString()}`);
   } catch (err) {
     console.error("sendBudgetAlert error:", err);
   }
@@ -149,14 +186,53 @@ const sendBudgetAlert = async (user, tracker, period) => {
 const sendThresholdAlert = async (user, tracker, period) => {
   try {
     const percentage = Math.round((tracker.totalCost / tracker.budgetLimit) * 100);
+    const to = user?.email || process.env.TEST_ALERT_EMAIL;
+    const from = process.env.FROM_EMAIL || `no-reply@${process.env.EMAIL_DOMAIN || "localhost"}`;
+    const subject = `Budget Warning: ${percentage}% of ${period} budget reached`;
+    const text = `You have reached ${percentage}% of your ${period} budget. Spent: $${tracker.totalCost.toFixed(2)} / Limit: $${tracker.budgetLimit.toFixed(2)}`;
+    const html = `<p>${text}</p><p>Time: ${new Date().toISOString()}</p>`;
 
-    // TODO: Integrate with email service
-    console.log(
-      `⚠️  Budget THRESHOLD for ${user._id} - ${period} at ${percentage}% of limit`
-    );
-    console.log(`Spent: $${tracker.totalCost.toFixed(2)} / Limit: $${tracker.budgetLimit.toFixed(2)}`);
+    if (!to) {
+      console.warn("No recipient found for threshold alert");
+      return;
+    }
+
+    if (transporter) {
+      await transporter.sendMail({ from, to, subject, text, html });
+      console.log(`Threshold alert email sent to ${to}`);
+    } else {
+      console.log(`⚠️  Budget THRESHOLD for ${user._id} - ${period} at ${percentage}% (no SMTP configured)`);
+      console.log(text);
+    }
   } catch (err) {
     console.error("sendThresholdAlert error:", err);
+  }
+};
+
+/**
+ * Send a simple test alert to a provided email (or TEST_ALERT_EMAIL)
+ */
+const sendTestAlert = async (toEmail) => {
+  try {
+    const to = toEmail || process.env.TEST_ALERT_EMAIL;
+    const from = process.env.FROM_EMAIL || `no-reply@${process.env.EMAIL_DOMAIN || "localhost"}`;
+    if (!to) throw new Error("No recipient specified for test alert");
+
+    const subject = "Test Alert from Scholar Next AI";
+    const text = `This is a test alert sent at ${new Date().toISOString()}`;
+    const html = `<p>${text}</p>`;
+
+    if (transporter) {
+      await transporter.sendMail({ from, to, subject, text, html });
+      console.log(`Test alert email sent to ${to}`);
+      return { success: true, to };
+    }
+
+    console.log(`Test alert (console): ${text} -> ${to}`);
+    return { success: false, reason: "no-transporter", to };
+  } catch (err) {
+    console.error("sendTestAlert error:", err);
+    throw err;
   }
 };
 
@@ -316,4 +392,5 @@ module.exports = {
   setBudgetLimit,
   getProviderCosts,
   checkAndAlertBudget,
+  sendTestAlert,
 };
